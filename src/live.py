@@ -68,17 +68,29 @@ class LiveTrader:
 
     def _get_current_price(self) -> Optional[int]:
         """
-        Fetch current market price.
+        Fetch current market price using micro price calculation.
 
-        TODO: Implement this method to get the current price from the market.
-
-        Should use self.client.get_market() to fetch market data and
-        return the current price (last_price, or mid of bid/ask).
+        Micro price is a volume-weighted average that considers both
+        bid/ask prices and their sizes: ((bid_size * ask_price) + (ask_size * bid_price)) / total_volume
         """
         try:
             market = self.client.get_market(self.config.ticker)
-            # TODO: Extract and return current price
-            # Hint: Use market.last_price, or calculate mid from yes_bid and yes_ask
+            
+            # If we have bid/ask sizes, calculate micro price
+            if (market.yes_bid is not None and market.yes_ask is not None and
+                market.yes_bid_size is not None and market.yes_ask_size is not None):
+                total_volume = market.yes_bid_size + market.yes_ask_size
+                if total_volume > 0:
+                    micro_price = ((market.yes_bid_size * market.yes_ask) + 
+                                  (market.yes_ask_size * market.yes_bid)) / total_volume
+                    return int(round(micro_price))
+            
+            # Fallback to mid price if sizes not available
+            if market.yes_bid is not None and market.yes_ask is not None:
+                mid_price = (market.yes_bid + market.yes_ask) / 2
+                return int(round(mid_price))
+            
+            # Final fallback to last_price
             return market.last_price
         except Exception as e:
             logger.error(f"Failed to get price: {e}")

@@ -33,6 +33,8 @@ class Market:
     yes_bid: Optional[int]
     last_price: Optional[int]
     volume: int
+    yes_ask_size: Optional[int] = None
+    yes_bid_size: Optional[int] = None
 
 
 class KalshiClient:
@@ -157,6 +159,8 @@ class KalshiClient:
             status=m.get("status", ""),
             yes_ask=m.get("yes_ask"),
             yes_bid=m.get("yes_bid"),
+            yes_ask_size=m.get("yes_ask_size"),
+            yes_bid_size=m.get("yes_bid_size"),
             last_price=m.get("last_price"),
             volume=m.get("volume", 0)
         )

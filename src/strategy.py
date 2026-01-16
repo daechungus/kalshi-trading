@@ -1,10 +1,16 @@
 """
-TODO: Implement your strategy here
+Trading strategies for Kalshi markets.
+
+Includes:
+- MomentumStrategy: Template momentum-based strategy
+- CMEArbitrageStrategy: CME-to-Kalshi basis trading strategy
 """
 
 from dataclasses import dataclass, field
 from typing import Optional
 from collections import deque
+import pandas as pd
+import numpy as np
 
 
 @dataclass
@@ -15,64 +21,155 @@ class Signal:
     confidence: float = 0.0
     reason: str = ""
 
-
 @dataclass
-class MomentumStrategy:
+class CMEArbitrageStrategy:
     """
-    This is a template for a momentum-based strategy, but you can implement
-    any type of strategy you want. The key is to implement the update() method
-    that takes in a new price and returns a Signal.
-
+    CME-to-Kalshi Arbitrage Strategy.
+    
+    Trades the basis between CME Fed Funds Futures (the "Source of Truth")
+    and Kalshi prediction markets. When Kalshi drifts away from CME pricing,
+    we arbitrage the difference.
+    
     Attributes:
-        short_window: Period for the fast moving average (example parameter)
-        long_window: Period for the slow moving average (example parameter)
-        threshold: Minimum % difference to trigger a signal (example parameter)
+        cme_probs: Series of CME-implied probabilities (0.0-1.0) indexed by date
+        entry_threshold: Minimum basis (in cents) to trigger a trade (default: 4.5)
+        fees_round_trip: Estimated fees per round trip in cents (default: 2.0)
     """
-    short_window: int = 5
-    long_window: int = 20
-    threshold: float = 2.0
-
-    prices: deque = field(default_factory=lambda: deque(maxlen=100))
-    position: int = 0  # Current position: +1 long, 0 flat, -1 short
-
-    def __post_init__(self):
-        """Initialize any additional state needed by your strategy."""
-        self.prices = deque(maxlen=max(self.long_window * 2, 100))
-
-    def reset(self):
-        """Reset strategy state."""
-        self.prices.clear()
-        self.position = 0
-
-    def update(self, price: float) -> Signal:
+    cme_probs: pd.Series
+    entry_threshold: float = 4.5  # cents
+    fees_round_trip: float = 2.0  # cents
+    
+    def calculate_basis(self, kalshi_bid: int, kalshi_ask: int, fair_value_cents: float) -> tuple[float, float]:
         """
-        Update strategy with new price and generate signal.
-
-        This is the main method you need to implement! It should:
-        1. Store/process the new price
-        2. Calculate any indicators you need
-        3. Generate a buy, sell, or hold signal based on your strategy
-
+        Calculate the basis (edge) for long and short opportunities.
+        
         Args:
-            price: Latest price (in cents, 0-100)
-
+            kalshi_bid: Kalshi bid price in cents
+            kalshi_ask: Kalshi ask price in cents
+            fair_value_cents: CME-implied fair value in cents (0-100)
+        
         Returns:
-            Signal indicating action to take (buy, sell, or hold)
+            (basis_long, basis_short) where:
+            - basis_long: Positive means Kalshi is cheap (buy opportunity)
+            - basis_short: Positive means Kalshi is expensive (sell opportunity)
         """
-        self.prices.append(price)
-
-        # TODO: Implement your strategy logic
-
-        # For now, just return a hold signal
-        return Signal(
-            action=None,
-            reason="Strategy not implemented yet"
-        )
-
+        basis_long = fair_value_cents - kalshi_ask  # Buy cheap
+        basis_short = kalshi_bid - fair_value_cents  # Sell expensive
+        return basis_long, basis_short
+    
+    def update(
+        self, 
+        kalshi_bid: int, 
+        kalshi_ask: int, 
+        date: Optional[pd.Timestamp] = None,
+        fair_value_cents: Optional[float] = None
+    ) -> Signal:
+        """
+        Update strategy with current Kalshi market and generate signal.
+        
+        Args:
+            kalshi_bid: Current Kalshi bid price in cents
+            kalshi_ask: Current Kalshi ask price in cents
+            date: Date for looking up CME probability (if None, uses latest)
+            fair_value_cents: Pre-calculated fair value (if None, looks up from cme_probs)
+        
+        Returns:
+            Signal indicating action (buy, sell, or hold)
+        """
+        # Get fair value from CME probabilities
+        if fair_value_cents is None:
+            if date is None:
+                # Use most recent probability
+                if len(self.cme_probs) == 0:
+                    return Signal(action=None, reason="No CME data available")
+                fair_value_prob = self.cme_probs.iloc[-1]
+            else:
+                # Look up probability for this date
+                if date not in self.cme_probs.index:
+                    # Find nearest date
+                    nearest_idx = self.cme_probs.index.get_indexer([date], method='nearest')[0]
+                    if nearest_idx == -1:
+                        return Signal(action=None, reason=f"No CME data for date {date}")
+                    fair_value_prob = self.cme_probs.iloc[nearest_idx]
+                else:
+                    fair_value_prob = self.cme_probs[date]
+            
+            fair_value_cents = fair_value_prob * 100
+        
+        # Calculate basis
+        basis_long, basis_short = self.calculate_basis(kalshi_bid, kalshi_ask, fair_value_cents)
+        
+        # Generate signal
+        if basis_long > self.entry_threshold:
+            return Signal(
+                action="buy",
+                side="yes",
+                confidence=min(basis_long / 10.0, 1.0),  # Normalize confidence
+                reason=f"Long edge: {basis_long:.2f} cents (FV: {fair_value_cents:.2f}¢, Ask: {kalshi_ask}¢)"
+            )
+        elif basis_short > self.entry_threshold:
+            return Signal(
+                action="sell",
+                side="yes",
+                confidence=min(basis_short / 10.0, 1.0),
+                reason=f"Short edge: {basis_short:.2f} cents (FV: {fair_value_cents:.2f}¢, Bid: {kalshi_bid}¢)"
+            )
+        else:
+            return Signal(
+                action=None,
+                reason=f"No edge (Long: {basis_long:.2f}¢, Short: {basis_short:.2f}¢, Threshold: {self.entry_threshold}¢)"
+            )
+    
+    def run_backtest(self, kalshi_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Run backtest on aligned CME and Kalshi data.
+        
+        Args:
+            kalshi_data: DataFrame with 'yes_bid' and 'yes_ask' columns, indexed by date
+        
+        Returns:
+            DataFrame with signals, basis, and PnL calculations
+        """
+        # Align dataframes by date (inner join)
+        df = pd.concat([
+            self.cme_probs.rename("fair_value_prob"),
+            kalshi_data[['yes_bid', 'yes_ask']]
+        ], axis=1).dropna()
+        
+        # Convert probability to cents
+        df['fv_cents'] = df['fair_value_prob'] * 100
+        
+        # Calculate basis
+        df['basis_long'] = df['fv_cents'] - df['yes_ask']
+        df['basis_short'] = df['yes_bid'] - df['fv_cents']
+        
+        # Generate signals
+        df['signal'] = 0  # 0 = Hold, 1 = Buy, -1 = Sell
+        df.loc[df['basis_long'] > self.entry_threshold, 'signal'] = 1
+        df.loc[df['basis_short'] > self.entry_threshold, 'signal'] = -1
+        
+        # Calculate PnL (simplified: assume exit at fair value)
+        trades = df[df['signal'] != 0].copy()
+        if not trades.empty:
+            trades['pnl_gross'] = np.where(
+                trades['signal'] == 1,
+                trades['fv_cents'] - trades['yes_ask'],  # Long: buy at ask, exit at FV
+                trades['yes_bid'] - trades['fv_cents']    # Short: sell at bid, exit at FV
+            )
+            trades['pnl_net'] = trades['pnl_gross'] - self.fees_round_trip
+            df.loc[trades.index, 'pnl_gross'] = trades['pnl_gross']
+            df.loc[trades.index, 'pnl_net'] = trades['pnl_net']
+        else:
+            df['pnl_gross'] = 0.0
+            df['pnl_net'] = 0.0
+        
+        return df
+    
     def get_state(self) -> dict:
         """Get current strategy state for debugging."""
         return {
-            "prices_count": len(self.prices),
-            "position": self.position,
-            "last_price": self.prices[-1] if self.prices else None
+            "cme_data_points": len(self.cme_probs),
+            "entry_threshold": self.entry_threshold,
+            "fees_round_trip": self.fees_round_trip,
+            "latest_fair_value": (self.cme_probs.iloc[-1] * 100) if len(self.cme_probs) > 0 else None
         }
