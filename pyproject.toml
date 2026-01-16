@@ -1,0 +1,15 @@
+[project]
+name = "kalshi-systematic-template"
+version = "0.1.0"
+description = "Student template for building trading strategies on Kalshi prediction markets"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=46.0.3",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
+
+[project.scripts]
+kalshi = "main:main"
