@@ -1,5 +1,3 @@
-# Kalshi Systematic Trading Template
-
 ## Step 1: Set Up Environment
 
 1. Install dependencies:
