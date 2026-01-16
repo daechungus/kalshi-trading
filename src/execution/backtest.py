@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from datetime import datetime
 
-from .strategy import MomentumStrategy, Signal
-from .kalshi_client import Trade
+from .strategy import Signal
+from ..ingestion.kalshi_client import Trade
 
 
 @dataclass

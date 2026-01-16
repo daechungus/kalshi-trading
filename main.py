@@ -2,18 +2,11 @@
 """
 Kalshi Trading System - Student Template
 
-TODO: Implement your trading strategy and backtesting logic!
-
 This template provides the core structure for:
 - Connecting to Kalshi API
 - Fetching market data and historical trades
 - Running backtests on historical data
 - Live trading (paper and real)
-
-Your task is to implement:
-1. Trading strategy in src/strategy.py
-2. Backtesting logic in src/backtest.py
-3. Live trading logic in src/live.py (optional)
 
 Usage:
     # Get market information
@@ -30,10 +23,10 @@ import argparse
 import sys
 from datetime import datetime, timedelta
 
-from src.kalshi_client import KalshiClient
-from src.strategy import MomentumStrategy
-from src.backtest import Backtester
-from src.live import LiveTrader, LiveConfig
+from src.ingestion.kalshi_client import KalshiClient
+from src.execution.strategy import CMEArbitrageStrategy
+from src.execution.backtest import Backtester
+from src.execution.live import LiveTrader, LiveConfig
 
 
 def cmd_backtest(args):
@@ -83,11 +76,12 @@ def cmd_backtest(args):
         print(f"Not enough trades for backtest (need at least {args.long_window})")
         return 1
 
-    # Initialize strategy
-    strategy = MomentumStrategy(
-        short_window=args.short_window,
-        long_window=args.long_window,
-        threshold=args.threshold
+    # TODO: Update to use CMEArbitrageStrategy instead of MomentumStrategy
+    # This requires CME data and different parameters
+    # For now, this command is deprecated - use backtest_cme_arbitrage.py instead
+    raise NotImplementedError(
+        "MomentumStrategy has been removed. "
+        "Use 'python backtest_cme_arbitrage.py' for CME arbitrage backtesting."
     )
 
     # Run backtest
@@ -136,10 +130,11 @@ def cmd_live(args):
     # Initialize components
     client = KalshiClient(demo=args.demo)
 
-    strategy = MomentumStrategy(
-        short_window=args.short_window,
-        long_window=args.long_window,
-        threshold=args.threshold
+    # TODO: Update to use CMEArbitrageStrategy instead of MomentumStrategy
+    # This requires CME data and different parameters
+    raise NotImplementedError(
+        "MomentumStrategy has been removed. "
+        "Live trading with CMEArbitrageStrategy requires CME data integration."
     )
 
     config = LiveConfig(

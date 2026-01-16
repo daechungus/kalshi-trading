@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from .kalshi_client import KalshiClient
-from .strategy import MomentumStrategy, Signal
+from ..ingestion.kalshi_client import KalshiClient
+from .strategy import Signal
 
 
 logging.basicConfig(

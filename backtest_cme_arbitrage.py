@@ -13,8 +13,8 @@ Usage:
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from src.cme_client import CMEClient
-from src.strategy import CMEArbitrageStrategy
+from src.ingestion.cme_client import CMEClient
+from src.execution.strategy import CMEArbitrageStrategy
 
 
 def generate_kalshi_mock(cme_probs: pd.Series, drift_std: float = 0.05) -> pd.DataFrame:

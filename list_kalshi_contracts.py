@@ -8,7 +8,7 @@ in a given series (e.g., KXFED-26JAN) and displays their tickers and prices.
 
 import requests
 import sys
-from src.kalshi_client import KalshiClient
+from src.ingestion.kalshi_client import KalshiClient
 
 
 def list_contracts(series_ticker: str, use_demo: bool = True):

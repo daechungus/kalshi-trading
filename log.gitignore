@@ -1,0 +1,132 @@
+https://github.com/daechungus/kalshi-trading
+
+
+
+To model a market like Kalshi, we don't model "news". We're modeling stochastic processes and order flow. 
+
+
+Fundamentals: 
+
+Markets don't have a set price. They consist of a bid, which is the highest price someone is offering, and an ask, the lowest price that someone is willing to sell at right now. The difference between the two is called the spread. 
+
+
+
+Market Depth, given a price move only happens when all standing orders at the current best price are either fulfilled or cancelled, I'm going to start off with modeling the limit order book in case of order book imbalance (where either bid/ask side has significantly more contracts than the other). 
+
+
+
+On Kalshi, a contract pays $1 if the event happens and $0 if it doesn't, with a fee per order. I'm going to model the probability of each contract using the Bayes Theorem P(A|B) = P(B|A) * P(A) / P(B).
+
+long run average (consolidating data into longer bars)
+
+short run average (consolidating data into shorter bars) 
+
+
+
+For a short run average to rise above the long run average, immediately buy (Immediate or cancel) 
+
+If long run average to fall below the short run average, immediately sell. 
+
+
+
+
+
+
+# Actual notes
+
+Given that we often model price S_{t} using a stochastic differential equation, we're going to assume Kalshi's price mimics that of a random walk with some drift. 
+
+$$dS_t = \mu S_t dt + \sigma S_t dW_t$$
+
+$\mu$ (Drift): The average direction the price is moving.
+
+$\sigma$ (Volatility): The "noise" or how much the price swings.
+
+$dW_t$: A Wiener process (pure randomness).
+
+
+
+For my strategy, rather than mid-price or last traded price, I'm going to use the micro price where I weigh the price by the liquidity at each side of the order book.
+$$P_{micro} = \frac{V_b P_a + V_a P_b}{V_b + V_a}$$
+Where $V_b$ is the volume at the bid and $V_a$ is the volume at the ask. 
+If the bid volume is massive (1$V_b >> V_a$), the micro-price will be very close to the Ask price. This suggests the "buying pressure" is so high that the price is likely to tick upward soon.
+
+
+
+Since I am going to be trading economics and sports, I assume I must have incredibly low latency to take advantage of price movements. I'd like to combine value and momentum strategies. In sports, prior knowledge of performance, injuries, and other factors can help me identify undervalued or overvalued contracts to exploit. In economics, momentum strategies can be effective as market sentiment and trends often drive price movements in the short term. I am creating this strategy to bet against the wisdom of the crowd in the short term only. I do acknowledge that despite the market hypothesis, the wisdom of the crowd is right more often than not. 
+
+Calculating fair value of sports via de-vig
+
+Formula for negative odds:  $IP = \frac{|Odds|}{|Odds| + 100}$
+Formula for positive odds:  $IP = \frac{100}{Odds + 100}$
+Formula for overround: $$S = IP_{team1} + IP_{team2} - 1$$
+Adjusted Implied Probability: $$AIP_{team1} = \frac{IP_{team1}}{S}$$
+Adjusted Implied Probability: $$AIP_{team2} = \frac{IP_{team2}}{S}$$
+
+
+Results summary (testing on monthly ZQ contracts from 2025-12 to 2026-01):
+
+CME data: 22 days loaded
+Trading opportunities: 6 trades found
+Performance:
+Win rate: 100% (6 wins, 0 losses)
+Total P&L: $0.24 (24 cents)
+Average P&L per trade: $0.04
+
+CME probabilities calculated: ~89–90% in the sample, indicating the market priced a high probability of the rate staying above the target.
+Arbitrage opportunities found:
+Short signals (signal = -1): Kalshi was overpriced relative to CME fair value
+Long signals (signal = 1): Kalshi was underpriced relative to CME fair value
+Example trade (2026-01-05):
+CME fair value: 53 cents
+Kalshi ask: 45 cents
+Basis: 8 cents (Kalshi was 8 cents cheaper)
+Action: Buy at 45 cents, exit at 53 cents fair value
+Net P&L: 6 cents (8 cents gross - 2 cents fees)
+
+
+
+============================================================
+CME-to-Kalshi Arbitrage Backtest
+============================================================
+
+[1/4] Loading CME Fed Funds Futures data...
+[CME] Loading data from CBOT 30-DAY Federal Fund Futures Historical Data.csv...
+[CME] Loaded 22 days of data
+    [OK] Loaded 22 days of CME data
+    [OK] Sample probabilities: [0.8899999999999864, 0.8999999999999773, 0.8999999999999773]
+
+[2/4] Generating synthetic Kalshi market data...
+    (In production, this would come from Kalshi API)
+    [OK] Generated 22 days of Kalshi data
+    [OK] Sample bid/ask: [{'yes_bid': 89, 'yes_ask': 93}, {'yes_bid': 87, 'yes_ask': 91}, {'yes_bid': 91, 'yes_ask': 95}]
+
+[3/4] Running arbitrage strategy...
+    [OK] Analyzed 22 days
+    [OK] Found 6 trading opportunities
+
+[4/4] Calculating performance metrics...
+
+============================================================
+BACKTEST RESULTS
+============================================================
+Total Trades:        6
+Winning Trades:       6
+Losing Trades:        0
+Win Rate:            100.0%
+Total P&L (cents):   24.00
+Total P&L (dollars): $0.24
+Avg P&L per Trade:   $0.04
+============================================================
+
+Sample Trades (Top 5):
+------------------------------------------------------------
+            yes_bid  yes_ask  fv_cents  basis_long  basis_short  signal  pnl_net
+Date
+2025-12-18       94       98      89.0        -9.0          5.0      -1      3.0
+2025-12-23       94       98      89.0        -9.0          5.0      -1      3.0
+2026-01-05       41       45      53.0         8.0        -12.0       1      6.0
+2026-01-06       45       49      56.0         7.0        -11.0       1      5.0
+2026-01-13       46       50      56.0         6.0        -10.0       1      4.0
+
+[SUCCESS] Strategy is profitable!
