@@ -1,9 +1,15 @@
 """
 Research Module
 
-Future home for DHIN (Dynamic Hierarchical Information Network) research
-and advanced modeling components.
+DHIN (Dynamic Hierarchical Information Network) research and advanced modeling.
+
+This module contains:
+- graph_builder: Transforms time-series data into graph structures
+- config: Shared configuration for research components
 """
 
-__all__ = []
+from .graph_builder import DHINBuilder
+from . import config
+
+__all__ = ['DHINBuilder', 'config']
 
