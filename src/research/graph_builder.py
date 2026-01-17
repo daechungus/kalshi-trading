@@ -345,12 +345,12 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("RESEARCH THESIS:")
     if noise_weight < basis_weight:
-        print("  ✓ Market is EFFICIENT: Basis edge stronger than noise")
-        print("    -> Kalshi follows CME truth, not retail sentiment")
+        print("  [OK] Market is EFFICIENT: Basis edge stronger than noise")
+        print("       -> Kalshi follows CME truth, not retail sentiment")
     else:
-        print("  ⚠ Market is INEFFICIENT: Noise edge stronger than basis")
-        print("    -> Kalshi is driven by retail sentiment, ignoring CME truth")
-        print("    -> THIS IS WHEN WE EXECUTE (arbitrage opportunity)")
+        print("  [WARNING] Market is INEFFICIENT: Noise edge stronger than basis")
+        print("            -> Kalshi is driven by retail sentiment, ignoring CME truth")
+        print("            -> THIS IS WHEN WE EXECUTE (arbitrage opportunity)")
     print("="*70)
     
     # Visualize
