@@ -8,7 +8,7 @@ This project implements a quantitative arbitrage strategy targeting structural i
 
 ---
 
-## **1. The Strategy: The CME Mirror**
+## **1. The CME Mirror**
 
 We treat Kalshi not as a betting venue, but as a derivative of the CME (Chicago Mercantile Exchange).
 
@@ -31,7 +31,7 @@ Trade if:
 
 ---
 
-## **2. Microstructure "Kill List" (Why Naive Bots Fail)**
+## **2. Why Naive Bots Fail**
 
 Before building the engine, we conducted a microstructure audit of the venue. The following constraints dictate our architecture:
 
@@ -80,7 +80,7 @@ The pipeline is designed for modularity, separating the "Truth" (Data) from the 
 
 ---
 
-## **4. Performance (Backtest)** 
+## **4. Backtesting ** 
 
 We validated the model using historical CME data against a synthetic Kalshi market modeling "Retail Drift" (Gaussian noise ).
 
